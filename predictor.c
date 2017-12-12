@@ -173,9 +173,9 @@ uint8_t tournament_prediction(uint32_t pc) {
 }
 //custom predictor
 void custom_init() {
-  lhistoryBits = 9;
-  pcIndexBits = 8;
-  ghistoryBits = 8;
+  lhistoryBits = 10;
+  pcIndexBits = 10;
+  ghistoryBits = 9;
   localBHT = malloc((1 << lhistoryBits) * sizeof(uint8_t));
   localPHT = malloc((1 << pcIndexBits) * sizeof(uint32_t));
   globalBHT = malloc((1 << ghistoryBits) * sizeof(uint8_t));
@@ -191,7 +191,9 @@ void custom_init() {
 
 void custom_train(uint32_t pc, uint8_t outcome) {
   uint8_t localOutcome = local_prediction(pc);
-  uint8_t globalOutcome = global_prediction(pc);
+  uint32_t globalBHTIndex = (globalHistory ^ pc) & ((1 << ghistoryBits) - 1);
+  uint8_t prediction = globalBHT[globalBHTIndex];
+  uint8_t globalOutcome = ((prediction == WN || prediction == SN) ? NOTTAKEN : TAKEN);
   if (globalOutcome != localOutcome) {
     uint8_t choiceOutcome = localOutcome == outcome ? TAKEN : NOTTAKEN;
     if (choiceOutcome == NOTTAKEN) {
@@ -221,7 +223,7 @@ void custom_train(uint32_t pc, uint8_t outcome) {
   localPHT[localPHTIndex] |= outcome;
 
   //train global predictor
-  uint32_t globalBHTIndex = (gshareHistory ^ pc) & ((1 << ghistoryBits) - 1);
+  globalBHTIndex = (gshareHistory ^ pc) & ((1 << ghistoryBits) - 1);
   if (outcome == NOTTAKEN) {
     if (globalBHT[globalBHTIndex] != SN) {
       globalBHT[globalBHTIndex]--;
