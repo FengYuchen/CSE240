@@ -49,6 +49,7 @@ uint8_t *choicePT;
 uint32_t globalHistory;
 uint8_t *globalBHT;
 
+//custom data structure;
 
 
 void gshare_init() {
@@ -172,15 +173,81 @@ uint8_t tournament_prediction(uint32_t pc) {
 }
 //custom predictor
 void custom_init() {
-  return;
+  lhistoryBits = 10;
+  pcIndexBits = 10;
+  ghistoryBits = 8;
+  localBHT = malloc((1 << lhistoryBits) * sizeof(uint8_t));
+  localPHT = malloc((1 << pcIndexBits) * sizeof(uint32_t));
+  globalBHT = malloc((1 << ghistoryBits) * sizeof(uint8_t));
+  choicePT = malloc((1 << ghistoryBits) * sizeof(uint8_t));
+
+  memset(localBHT, WN, (1 << lhistoryBits) * sizeof(uint8_t));
+  memset(localPHT, 0, (1 << pcIndexBits) * sizeof(uint32_t));
+  memset(globalBHT, WN, (1 << ghistoryBits) * sizeof(uint8_t));
+  memset(choicePT, WN, (1 << ghistoryBits) * sizeof(uint8_t));
+
+  globalHistory = 0;
 }
 
 void custom_train(uint32_t pc, uint8_t outcome) {
+  uint8_t localOutcome = local_prediction(pc);
+  uint8_t globalOutcome = global_prediction(pc);
+  if (globalOutcome != localOutcome) {
+    uint8_t choiceOutcome = localOutcome == outcome ? TAKEN : NOTTAKEN;
+    if (choiceOutcome == NOTTAKEN) {
+      if (choicePT[globalHistory] != SN) {
+        choicePT[globalHistory]--;
+      }
+    } else {
+      if (choicePT[globalHistory] != ST) {
+        choicePT[globalHistory]++;
+      }
+    }
+  }
+  //train local predictor
+  uint32_t localPHTIndex = pc & ((1 << pcIndexBits) - 1);
+  uint32_t localBHTIndex = localPHT[localPHTIndex];
+  if (outcome == NOTTAKEN) {
+    if (localBHT[localBHTIndex] != SN) {
+      localBHT[localBHTIndex]--;
+    }
+  } else {
+    if (localBHT[localBHTIndex] != ST) {
+      localBHT[localBHTIndex]++;
+    }
+  }
+  localPHT[localPHTIndex] <<= 1;
+  localPHT[localPHTIndex] &= ((1 << lhistoryBits) - 1);
+  localPHT[localPHTIndex] |= outcome;
+
+  //train global predictor
+  uint32_t globalBHTIndex = (gshareHistory ^ pc) & ((1 << ghistoryBits) - 1);
+  if (outcome == NOTTAKEN) {
+    if (globalBHT[globalBHTIndex] != SN) {
+      globalBHT[globalBHTIndex]--;
+    }
+  } else {
+    if (globalBHT[globalBHTIndex] != ST) {
+      globalBHT[globalBHTIndex]++;
+    }
+  }
+  globalHistory <<= 1;
+  globalHistory &= ((1 << ghistoryBits) - 1);
+  globalHistory |= outcome;
   return;
 }
 
 uint8_t custom_prediction(uint32_t pc) {
-  return NOTTAKEN;
+  uint32_t choiceBHTIndex = (globalHistory) & ((1 << ghistoryBits) - 1);
+  uint32_t choiceOutcome = choicePT[choiceBHTIndex];
+  uint8_t localOutcome = local_prediction(pc);
+  uint32_t globalBHTIndex = (globalHistory ^ pc) & ((1 << ghistoryBits) - 1);
+  uint8_t prediction = globalBHT[globalBHTIndex];
+  uint8_t globalOutcome = ((prediction == WN || prediction == SN) ? NOTTAKEN : TAKEN);
+  if (choiceOutcome == WN || choiceOutcome == SN)     
+    return globalOutcome;
+  else 
+    return localOutcome;
 }
 
 //------------------------------------//
