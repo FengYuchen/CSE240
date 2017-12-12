@@ -174,7 +174,7 @@ uint8_t tournament_prediction(uint32_t pc) {
 //custom predictor
 void custom_init() {
   lhistoryBits = 9;
-  pcIndexBits = 7;
+  pcIndexBits = 8;
   ghistoryBits = 8;
   localBHT = malloc((1 << lhistoryBits) * sizeof(uint8_t));
   localPHT = malloc((1 << pcIndexBits) * sizeof(uint32_t));
